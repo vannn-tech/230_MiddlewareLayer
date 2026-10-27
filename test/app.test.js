@@ -199,3 +199,54 @@ test("limit pagination dibatasi sampai 100 data", async (t) => {
   assert.equal(response.status, 400);
   assert.equal(queried, false);
 });
+
+test("PATCH cuma mengubah field yang dikirim", async (t) => {
+  let query;
+  const app = createApp({
+    pool: {
+      async query(sql, values) {
+        query = { sql, values };
+        return { rowCount: 1, rows: [{ id: 7, nama: "Budi Baru", nim: "23001", kelas: "A" }] };
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/biodata/7`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ nama: "Budi Baru" }),
+  });
+
+  assert.equal(response.status, 200);
+  assert.match(query.sql, /SET nama = \$1\s+WHERE id = \$2/);
+  assert.deepEqual(query.values, ["Budi Baru", 7]);
+});
+
+test("PATCH nolak body kosong", async (t) => {
+  let queried = false;
+  const app = createApp({
+    pool: {
+      async query() {
+        queried = true;
+        return { rowCount: 0, rows: [] };
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/biodata/7`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+  });
+
+  assert.equal(response.status, 400);
+  assert.equal(queried, false);
+});

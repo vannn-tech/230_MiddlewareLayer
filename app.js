@@ -52,12 +52,16 @@ function errorResponse(res, message, status, details = null) {
 }
 
 // ===== Joi Validation Schema =====
-const biodataSchema = Joi.object({
-  nama: Joi.string().trim().min(2).max(100).required(),
-  nim: Joi.string().trim().pattern(/^\d+$/).min(3).max(20).required()
+const biodataFields = {
+  nama: Joi.string().trim().min(2).max(100),
+  nim: Joi.string().trim().pattern(/^\d+$/).min(3).max(20)
     .messages({ "string.pattern.base": '"nim" hanya boleh berisi angka' }),
-  kelas: Joi.string().trim().min(1).max(20).required(),
-});
+  kelas: Joi.string().trim().min(1).max(20),
+};
+
+const biodataSchema = Joi.object(biodataFields)
+  .fork(Object.keys(biodataFields), (schema) => schema.required());
+const biodataPatchSchema = Joi.object(biodataFields).min(1);
 
 const idSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
@@ -171,6 +175,24 @@ app.put("/biodata/:id", validateParams(idSchema), validateBody(biodataSchema), a
      WHERE id = $4
      RETURNING *`,
     [nama, nim, kelas, id]
+  );
+  if (result.rowCount === 0) return errorResponse(res, "Data tidak ditemukan", 404);
+  return successResponse(res, "Data berhasil diupdate", result.rows[0]);
+});
+
+// PATCH ubah sebagian data
+app.patch("/biodata/:id", validateParams(idSchema), validateBody(biodataPatchSchema), async (req, res) => {
+  const { id } = req.params;
+  const fields = Object.keys(req.body);
+  const assignments = fields.map((field, index) => `${field} = $${index + 1}`);
+  const values = fields.map((field) => req.body[field]);
+  values.push(id);
+
+  const result = await pool.query(
+    `UPDATE biodata SET ${assignments.join(", ")}
+     WHERE id = $${values.length}
+     RETURNING *`,
+    values
   );
   if (result.rowCount === 0) return errorResponse(res, "Data tidak ditemukan", 404);
   return successResponse(res, "Data berhasil diupdate", result.rows[0]);
