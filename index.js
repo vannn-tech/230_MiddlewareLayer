@@ -1,19 +1,12 @@
-import "dotenv/config";
 import express from "express";
 import pg from "pg";
 import Joi from "joi";
+import config from "./config.js";
 
 const app = express();
-const port = process.env.PORT || 3000;
 const { Pool } = pg;
 
-const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: Number(process.env.DB_PORT) || 5432,
-});
+const pool = new Pool(config.database);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -160,6 +153,6 @@ app.use((err, req, res, next) => {
   return errorResponse(res, "Terjadi Kesalahan pada Server", 500);
 });
 
-app.listen(port, () => {
-  console.log(`App running on port ${port}.`);
+app.listen(config.port, () => {
+  console.log(`App running on port ${config.port}.`);
 });
