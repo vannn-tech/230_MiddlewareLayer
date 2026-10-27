@@ -66,6 +66,8 @@ const idSchema = Joi.object({
 const listQuerySchema = Joi.object({
   nama: Joi.string().trim().min(1).max(100),
   kelas: Joi.string().trim().min(1).max(20),
+  limit: Joi.number().integer().min(1).max(100),
+  offset: Joi.number().integer().min(0).max(Number.MAX_SAFE_INTEGER),
 });
 
 const formatError = (error) =>
@@ -127,7 +129,17 @@ app.get(["/", "/biodata"], async (req, res) => {
   }
 
   const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
-  const result = await pool.query(`SELECT * FROM biodata${where} ORDER BY id`, values);
+  let sql = `SELECT * FROM biodata${where} ORDER BY id`;
+  if (value.limit !== undefined || value.offset !== undefined) {
+    const limit = value.limit ?? 20;
+    const offset = value.offset ?? 0;
+    values.push(limit, offset);
+    sql += ` LIMIT $${values.length - 1} OFFSET $${values.length}`;
+    res.setHeader("X-Page-Limit", String(limit));
+    res.setHeader("X-Page-Offset", String(offset));
+  }
+
+  const result = await pool.query(sql, values);
   return successResponse(res, "Data berhasil diambil", result.rows);
 });
 

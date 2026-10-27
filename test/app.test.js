@@ -152,3 +152,50 @@ test("tolak filter yang tidak dikenal", async (t) => {
   assert.equal(response.status, 400);
   assert.equal(queried, false);
 });
+
+test("pagination membatasi hasil dan tetap bisa digabung sama filter", async (t) => {
+  let query;
+  const app = createApp({
+    pool: {
+      async query(sql, values) {
+        query = { sql, values };
+        return { rows: [] };
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(
+    `http://127.0.0.1:${server.address().port}/biodata?kelas=A&limit=10&offset=20`
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(query.sql, /kelas ILIKE \$1 ORDER BY id LIMIT \$2 OFFSET \$3/);
+  assert.deepEqual(query.values, ["A", 10, 20]);
+  assert.equal(response.headers.get("x-page-limit"), "10");
+  assert.equal(response.headers.get("x-page-offset"), "20");
+});
+
+test("limit pagination dibatasi sampai 100 data", async (t) => {
+  let queried = false;
+  const app = createApp({
+    pool: {
+      async query() {
+        queried = true;
+        return { rows: [] };
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/biodata?limit=101`);
+
+  assert.equal(response.status, 400);
+  assert.equal(queried, false);
+});
