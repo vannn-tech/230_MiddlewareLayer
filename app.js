@@ -63,6 +63,11 @@ const idSchema = Joi.object({
   id: Joi.number().integer().positive().required(),
 });
 
+const listQuerySchema = Joi.object({
+  nama: Joi.string().trim().min(1).max(100),
+  kelas: Joi.string().trim().min(1).max(20),
+});
+
 const formatError = (error) =>
   error.details.map((item) => ({ field: item.path.join("."), message: item.message }));
 
@@ -103,7 +108,26 @@ app.get("/health", async (req, res) => {
 
 // GET semua data
 app.get(["/", "/biodata"], async (req, res) => {
-  const result = await pool.query("SELECT * FROM biodata ORDER BY id");
+  const { error, value } = listQuerySchema.validate(req.query, {
+    abortEarly: false,
+    convert: true,
+    allowUnknown: false,
+  });
+  if (error) return errorResponse(res, "Parameter tidak valid", 400, formatError(error));
+
+  const conditions = [];
+  const values = [];
+  if (value.nama) {
+    values.push(`%${value.nama}%`);
+    conditions.push(`nama ILIKE $${values.length}`);
+  }
+  if (value.kelas) {
+    values.push(value.kelas);
+    conditions.push(`kelas ILIKE $${values.length}`);
+  }
+
+  const where = conditions.length ? ` WHERE ${conditions.join(" AND ")}` : "";
+  const result = await pool.query(`SELECT * FROM biodata${where} ORDER BY id`, values);
   return successResponse(res, "Data berhasil diambil", result.rows);
 });
 

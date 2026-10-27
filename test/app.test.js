@@ -107,3 +107,48 @@ test("health check mengembalikan 503 kalau database putus", async (t) => {
   assert.equal(response.status, 503);
   assert.equal((await response.json()).message, "Database tidak dapat diakses");
 });
+
+test("filter daftar biodata dikirim sebagai parameter SQL", async (t) => {
+  let query;
+  const app = createApp({
+    pool: {
+      async query(sql, values) {
+        query = { sql, values };
+        return { rows: [] };
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(
+    `http://127.0.0.1:${server.address().port}/biodata?nama=${encodeURIComponent("Budi' OR 1=1 --")}&kelas=A`
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(query.sql, /nama ILIKE \$1 AND kelas ILIKE \$2/);
+  assert.deepEqual(query.values, ["%Budi' OR 1=1 --%", "A"]);
+});
+
+test("tolak filter yang tidak dikenal", async (t) => {
+  let queried = false;
+  const app = createApp({
+    pool: {
+      async query() {
+        queried = true;
+        return { rows: [] };
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/biodata?tidakAda=isi`);
+
+  assert.equal(response.status, 400);
+  assert.equal(queried, false);
+});
