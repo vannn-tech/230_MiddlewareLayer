@@ -18,6 +18,8 @@ test("route daftar biodata pakai format respons yang konsisten", async (t) => {
   const body = await response.json();
 
   assert.equal(response.status, 200);
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "DENY");
   assert.deepEqual(body.data, [{ id: 1, nama: "Budi", nim: "23001", kelas: "A" }]);
   assert.equal(body.success, true);
   assert.equal(body.error, null);
