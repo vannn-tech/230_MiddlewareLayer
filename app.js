@@ -88,6 +88,12 @@ function validateParams(schema) {
 
 // ===== Routes =====
 
+// Cek aplikasi sekaligus koneksi database
+app.get("/health", async (req, res) => {
+  await pool.query("SELECT 1");
+  return successResponse(res, "Server dan database siap", { status: "ok" });
+});
+
 // GET semua data
 app.get(["/", "/biodata"], async (req, res) => {
   const result = await pool.query("SELECT * FROM biodata ORDER BY id");

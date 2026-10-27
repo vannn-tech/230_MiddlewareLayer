@@ -64,3 +64,44 @@ test("tolak body JSON yang ukurannya kelewat besar", async (t) => {
   assert.equal(response.status, 413);
   assert.equal((await response.json()).message, "Ukuran body terlalu besar");
 });
+
+test("health check memastikan database bisa dipakai", async (t) => {
+  let query;
+  const app = createApp({
+    pool: {
+      async query(sql) {
+        query = sql;
+        return { rows: [{ "?column?": 1 }] };
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/health`);
+
+  assert.equal(response.status, 200);
+  assert.equal(query, "SELECT 1");
+  assert.deepEqual((await response.json()).data, { status: "ok" });
+});
+
+test("health check mengembalikan 503 kalau database putus", async (t) => {
+  const app = createApp({
+    pool: {
+      async query() {
+        throw Object.assign(new Error("connection refused"), { code: "ECONNREFUSED" });
+      },
+    },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/health`);
+
+  assert.equal(response.status, 503);
+  assert.equal((await response.json()).message, "Database tidak dapat diakses");
+});
