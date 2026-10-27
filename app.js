@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import express from "express";
 import Joi from "joi";
 
@@ -8,6 +9,12 @@ export function createApp({ pool, logger = console } = {}) {
 
 const app = express();
 
+app.use((req, res, next) => {
+  req.requestId = randomUUID();
+  res.setHeader("X-Request-Id", req.requestId);
+  next();
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -17,6 +24,7 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
     logger.log({
+      requestId: req.requestId,
       method: req.method,
       url: req.originalUrl,
       statusCode: res.statusCode,

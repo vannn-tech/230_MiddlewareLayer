@@ -26,3 +26,22 @@ test("route daftar biodata pakai format respons yang konsisten", async (t) => {
 test("aplikasi gagal jelas kalau pool database tidak disediakan", () => {
   assert.throws(() => createApp(), /Pool database wajib disediakan/);
 });
+
+test("setiap request punya id yang sama di header dan log", async (t) => {
+  const entries = [];
+  const app = createApp({
+    pool: { async query() { return { rows: [] }; } },
+    logger: { log(entry) { entries.push(entry); }, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/biodata`);
+  const requestId = response.headers.get("x-request-id");
+  await response.text();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.match(requestId, /^[0-9a-f-]{36}$/);
+  assert.equal(entries[0].requestId, requestId);
+});
