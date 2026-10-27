@@ -1,12 +1,9 @@
 import express from "express";
-import pg from "pg";
 import Joi from "joi";
 import config from "./config.js";
+import { pool } from "./db.js";
 
 const app = express();
-const { Pool } = pg;
-
-const pool = new Pool(config.database);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
