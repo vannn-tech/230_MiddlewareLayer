@@ -45,3 +45,22 @@ test("setiap request punya id yang sama di header dan log", async (t) => {
   assert.match(requestId, /^[0-9a-f-]{36}$/);
   assert.equal(entries[0].requestId, requestId);
 });
+
+test("tolak body JSON yang ukurannya kelewat besar", async (t) => {
+  const app = createApp({
+    pool: { async query() { return { rows: [] }; } },
+    logger: { log() {}, error() {} },
+  });
+  const server = app.listen(0);
+  await once(server, "listening");
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+
+  const response = await fetch(`http://127.0.0.1:${server.address().port}/biodata`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ nama: "a".repeat(65 * 1024) }),
+  });
+
+  assert.equal(response.status, 413);
+  assert.equal((await response.json()).message, "Ukuran body terlalu besar");
+});

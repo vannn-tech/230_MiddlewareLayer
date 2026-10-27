@@ -15,8 +15,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: "64kb" }));
+app.use(express.urlencoded({ extended: true, limit: "64kb", parameterLimit: 100 }));
 
 // ===== Middleware Logging =====
 // Mencatat method, url, status code, dan lama proses setiap request
@@ -146,6 +146,9 @@ app.use((err, req, res, next) => {
   // JSON di body rusak (misalnya koma berlebih)
   if (err.type === "entity.parse.failed") {
     return errorResponse(res, "Format JSON tidak valid", 400);
+  }
+  if (err.type === "entity.too.large") {
+    return errorResponse(res, "Ukuran body terlalu besar", 413);
   }
   // PostgreSQL: pelanggaran UNIQUE (NIM kembar)
   if (err.code === "23505") {
